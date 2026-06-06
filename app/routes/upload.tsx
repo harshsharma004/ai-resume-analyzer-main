@@ -1,9 +1,9 @@
-import {type FormEvent, useState} from 'react'
+import {type FormEvent, useEffect, useState} from 'react'
 import Navbar from "~/components/Navbar";
 import FileUploader from "~/components/FileUploader";
 import {usePuterStore} from "~/lib/puter";
 import {useNavigate} from "react-router";
-import {convertPdfToImage} from "~/lib/pdf2img";
+import {convertPdfToImage, extractPdfText} from "~/lib/pdf2img";
 import {generateUUID} from "~/lib/utils";
 import {prepareInstructions, normalizeFeedback} from "../../constants";
 
@@ -12,6 +12,47 @@ export const meta = () => {
         { title: 'CareerForge AI | Resume Analyzer' },
         { name: 'description', content: 'Analyze your resume against real job requirements' },
     ];
+};
+
+const getAIResponseText = (response: AIResponse): string => {
+    const content = response?.message?.content;
+
+    if (typeof content === 'string') return content;
+    if (!Array.isArray(content)) return '';
+
+    const textPart = content.find((part) => typeof part?.text === 'string');
+    return textPart?.text || '';
+};
+
+const getErrorMessage = (error: unknown) => {
+    if (error instanceof Error) return error.message;
+    if (typeof error === 'string') return error;
+
+    try {
+        return JSON.stringify(error);
+    } catch {
+        return 'An error occurred during analysis.';
+    }
+};
+
+const parseFeedbackJson = (text: string) => {
+    const cleaned = text
+        .replace(/^```(?:json)?/i, '')
+        .replace(/```$/i, '')
+        .trim();
+
+    try {
+        return JSON.parse(cleaned);
+    } catch {
+        const start = cleaned.indexOf('{');
+        const end = cleaned.lastIndexOf('}');
+
+        if (start === -1 || end === -1 || end <= start) {
+            throw new Error('AI response did not contain valid JSON.');
+        }
+
+        return JSON.parse(cleaned.slice(start, end + 1));
+    }
 };
 
 const Upload = () => {
@@ -25,56 +66,82 @@ const Upload = () => {
         setFile(file)
     }
 
+    useEffect(() => {
+        if(!isLoading && !auth.isAuthenticated) navigate('/auth?next=/upload');
+    }, [isLoading, auth.isAuthenticated, navigate]);
+
     const handleAnalyze = async ({ companyName, jobTitle, jobDescription, industry, experienceLevel, file }: { companyName: string, jobTitle: string, jobDescription: string, industry: string, experienceLevel: string, file: File  }) => {
         setIsProcessing(true);
 
-        setStatusText('Uploading the file...');
-        const uploadedFile = await fs.upload([file]);
-        if(!uploadedFile) return setStatusText('Error: Failed to upload file');
-
-        setStatusText('Converting to image...');
-        const imageFile = await convertPdfToImage(file);
-        if(!imageFile.file) return setStatusText('Error: Failed to convert PDF to image');
-
-        setStatusText('Uploading the image...');
-        const uploadedImage = await fs.upload([imageFile.file]);
-        if(!uploadedImage) return setStatusText('Error: Failed to upload image');
-
-        setStatusText('Preparing data...');
-        const uuid = generateUUID();
-        const data: any = {
-            id: uuid,
-            resumePath: uploadedFile.path,
-            imagePath: uploadedImage.path,
-            companyName, jobTitle, jobDescription, industry, experienceLevel,
-            feedback: '',
-        }
-        await kv.set(`resume:${uuid}`, JSON.stringify(data));
-
-        setStatusText('Analyzing...');
-
-        const feedback = await ai.feedback(
-            uploadedFile.path,
-            prepareInstructions({ jobTitle, jobDescription, industry, experienceLevel })
-        )
-        if (!feedback) return setStatusText('Error: Failed to analyze resume');
-
-        const feedbackText = typeof feedback.message.content === 'string'
-            ? feedback.message.content
-            : feedback.message.content[0].text;
-
         try {
-            const rawJson = JSON.parse(feedbackText);
-            data.feedback = normalizeFeedback(rawJson);
-        } catch(e) {
-            console.error("Failed to parse AI output:", e);
-            data.feedback = normalizeFeedback({});
-        }
+            setStatusText('Preparing resume file...');
+            const [uploadedFile, imageFile, extractedText] = await Promise.all([
+                fs.upload([file]),
+                convertPdfToImage(file),
+                extractPdfText(file)
+            ]);
 
-        await kv.set(`resume:${uuid}`, JSON.stringify(data));
-        setStatusText('Analysis complete, redirecting...');
-        console.log(data);
-        navigate(`/resume/${uuid}`);
+            if(!uploadedFile) throw new Error('Failed to upload file');
+            if(!imageFile.file) throw new Error(imageFile.error || 'Failed to convert PDF to image');
+
+            setStatusText('Uploading resume preview...');
+            const uploadedImage = await fs.upload([imageFile.file]);
+            if(!uploadedImage) throw new Error('Failed to upload image');
+
+            let resumeText = extractedText;
+            if (resumeText.length < 200) {
+                setStatusText('Reading scanned resume...');
+                resumeText = await ai.img2txt(imageFile.file) || '';
+            }
+
+            if (resumeText.length < 100) {
+                throw new Error('Could not read enough text from this resume. Please try a text-based PDF.');
+            }
+
+            setStatusText('Preparing data...');
+            const uuid = generateUUID();
+            const data: Resume = {
+                id: uuid,
+                resumePath: uploadedFile.path,
+                imagePath: uploadedImage.path,
+                companyName, jobTitle,
+                feedback: normalizeFeedback({}),
+            }
+            await kv.set(`resume:${uuid}`, JSON.stringify({
+                ...data,
+                jobDescription,
+                industry,
+                experienceLevel
+            }));
+
+            setStatusText('Analyzing resume...');
+            const prompt = `${prepareInstructions({ jobTitle, jobDescription, industry, experienceLevel })}
+
+      Resume text:
+      ${resumeText.slice(0, 18000)}`;
+
+            const feedback = await ai.chat(prompt);
+            if (!feedback) throw new Error('Failed to analyze resume');
+
+            const feedbackText = getAIResponseText(feedback);
+            if (!feedbackText) throw new Error('The AI returned an empty response.');
+
+            const rawJson = parseFeedbackJson(feedbackText);
+            data.feedback = normalizeFeedback(rawJson);
+
+            await kv.set(`resume:${uuid}`, JSON.stringify({
+                ...data,
+                jobDescription,
+                industry,
+                experienceLevel
+            }));
+            setStatusText('Analysis complete, redirecting...');
+            navigate(`/resume/${uuid}`);
+        } catch(e) {
+            console.error(e);
+            setStatusText(`Error: ${getErrorMessage(e)}`);
+            setIsProcessing(false);
+        }
     }
 
     const handleSubmit = (e: FormEvent<HTMLFormElement>) => {

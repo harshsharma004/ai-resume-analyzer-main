@@ -35,7 +35,7 @@ export async function convertPdfToImage(
         const pdf = await lib.getDocument({ data: arrayBuffer }).promise;
         const page = await pdf.getPage(1);
 
-        const viewport = page.getViewport({ scale: 4 });
+        const viewport = page.getViewport({ scale: 2 });
         const canvas = document.createElement("canvas");
         const context = canvas.getContext("2d");
 
@@ -81,5 +81,32 @@ export async function convertPdfToImage(
             file: null,
             error: `Failed to convert PDF: ${err}`,
         };
+    }
+}
+
+export async function extractPdfText(file: File, maxPages = 5): Promise<string> {
+    try {
+        const lib = await loadPdfJs();
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await lib.getDocument({ data: arrayBuffer }).promise;
+        const pageCount = Math.min(pdf.numPages, maxPages);
+        const pageTexts: string[] = [];
+
+        for (let pageNumber = 1; pageNumber <= pageCount; pageNumber++) {
+            const page = await pdf.getPage(pageNumber);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items
+                .map((item: { str?: string }) => item.str || "")
+                .join(" ")
+                .replace(/\s+/g, " ")
+                .trim();
+
+            if (pageText) pageTexts.push(pageText);
+        }
+
+        return pageTexts.join("\n\n");
+    } catch (err) {
+        console.error("Failed to extract PDF text:", err);
+        return "";
     }
 }

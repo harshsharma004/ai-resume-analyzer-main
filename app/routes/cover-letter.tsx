@@ -3,12 +3,54 @@ import Navbar from "~/components/Navbar";
 import {usePuterStore} from "~/lib/puter";
 import {useNavigate} from "react-router";
 import {generateUUID} from "~/lib/utils";
+import {normalizeFeedback} from "../../constants";
 
 export const meta = () => {
     return [
         { title: 'CareerForge AI | Cover Letter Generator' },
         { name: 'description', content: 'Generate tailored cover letters instantly' },
     ];
+};
+
+const getAIResponseText = (response: AIResponse): string => {
+    const content = response?.message?.content;
+
+    if (typeof content === 'string') return content;
+    if (!Array.isArray(content)) return '';
+
+    const textPart = content.find((part) => typeof part?.text === 'string');
+    return textPart?.text || '';
+};
+
+const getErrorMessage = (error: unknown) => {
+    if (error instanceof Error) return error.message;
+    if (typeof error === 'string') return error;
+
+    try {
+        return JSON.stringify(error);
+    } catch {
+        return 'An error occurred during generation.';
+    }
+};
+
+const buildResumeContext = (resume: Resume) => {
+    const feedback = normalizeFeedback(resume.feedback);
+
+    return [
+        `Resume target role: ${resume.jobTitle || 'Unknown'}`,
+        `Target company: ${resume.companyName || 'Unknown'}`,
+        `Overall score: ${feedback.overallScore}`,
+        `ATS score: ${feedback.ATS.score}`,
+        `Job match score: ${feedback.jobMatchScore}`,
+        `Career level: ${feedback.careerLevel}`,
+        `Strengths: ${feedback.strengths.join(', ') || 'Not available'}`,
+        `Weaknesses: ${feedback.weaknesses.join(', ') || 'Not available'}`,
+        `Missing skills: ${feedback.missingSkills.join(', ') || 'Not available'}`,
+        `Career recommendations: ${feedback.careerRecommendations.join(', ') || 'Not available'}`,
+        `Recommended projects: ${feedback.recommendedProjects.join(', ') || 'Not available'}`,
+        `Recommended certifications: ${feedback.recommendedCertifications.join(', ') || 'Not available'}`,
+        `Cover letter summary: ${feedback.coverLetterSummary || 'Not available'}`
+    ].join('\n');
 };
 
 const CoverLetter = () => {
@@ -30,7 +72,11 @@ const CoverLetter = () => {
             try {
                 // Load resumes
                 const resumeItems = await kv.list('resume:*', true);
-                const parsedResumes = resumeItems?.map((item: any) => JSON.parse(item.value) as Resume);
+                const parsedResumes = resumeItems?.map((item: any) => {
+                    const parsed = JSON.parse(item.value) as Resume;
+                    if (parsed.feedback) parsed.feedback = normalizeFeedback(parsed.feedback);
+                    return parsed;
+                });
                 setResumes(parsedResumes || []);
 
                 // Load cover letters
@@ -69,10 +115,13 @@ const CoverLetter = () => {
         try {
             const prompt = `You are an expert career coach. Write a professional, compelling, and concise cover letter for the position of ${jobTitle} at ${companyName}.
             Here is the job description to tailor the letter to: ${jobDescription || 'N/A'}.
-            Use my attached resume to highlight relevant experience and skills. 
+            Use this stored resume analysis context to highlight relevant experience and skills:
+
+            ${buildResumeContext(selectedResume)}
+
             Do not include placeholders like [Your Name] if the resume contains my name. Do not wrap the response in backticks or markdown formatting. Just return the raw text of the cover letter.`;
 
-            const response = await ai.feedback(selectedResume.resumePath, prompt);
+            const response = await ai.chat(prompt);
             
             if (!response) {
                 setStatusText('Error: Failed to generate cover letter');
@@ -80,9 +129,13 @@ const CoverLetter = () => {
                 return;
             }
 
-            const content = typeof response.message.content === 'string'
-                ? response.message.content
-                : response.message.content[0].text;
+            const content = getAIResponseText(response);
+
+            if (!content) {
+                setStatusText('Error: The AI returned an empty response. Please try again.');
+                setIsProcessing(false);
+                return;
+            }
 
             const uuid = generateUUID();
             const newCL: CoverLetterItem = {
@@ -100,7 +153,7 @@ const CoverLetter = () => {
             setTimeout(() => setStatusText(''), 3000);
         } catch (e) {
             console.error(e);
-            setStatusText('An error occurred during generation.');
+            setStatusText(`Error: ${getErrorMessage(e)}`);
         }
         setIsProcessing(false);
     }

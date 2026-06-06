@@ -72,7 +72,7 @@ const Tracker = () => {
 
     const handleDeleteJob = async (id: string) => {
         try {
-            await kv.del(`tracker:${id}`);
+            await kv.delete(`tracker:${id}`);
             setJobs(jobs.filter(j => j.id !== id));
         } catch (e) {
             console.error(e);

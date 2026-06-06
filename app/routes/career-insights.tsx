@@ -1,8 +1,8 @@
-import {useEffect, useState} from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Navbar from "~/components/Navbar";
-import {usePuterStore} from "~/lib/puter";
-import {useNavigate} from "react-router";
-import {normalizeFeedback} from "../../constants";
+import { usePuterStore } from "~/lib/puter";
+import { useNavigate } from "react-router";
+import { normalizeFeedback } from "../../constants";
 import ScoreGauge from '~/components/ScoreGauge';
 
 export const meta = () => {
@@ -19,7 +19,7 @@ const CareerInsights = () => {
     const [resumes, setResumes] = useState<Resume[]>([]);
 
     useEffect(() => {
-        if(!isLoading && !auth.isAuthenticated) navigate('/auth?next=/career-insights');
+        if (!isLoading && !auth.isAuthenticated) navigate('/auth?next=/career-insights');
     }, [isLoading, auth.isAuthenticated, navigate]);
 
     useEffect(() => {
@@ -41,13 +41,18 @@ const CareerInsights = () => {
         if (auth.isAuthenticated) loadData();
     }, [auth.isAuthenticated, kv]);
 
-    const calculateAverages = () => {
+    const stats = useMemo(() => {
         if (resumes.length === 0) return null;
 
         const totalATS = resumes.reduce((acc, curr) => acc + (curr.feedback.ATS?.score || 0), 0);
         const totalOverall = resumes.reduce((acc, curr) => acc + (curr.feedback.overallScore || 0), 0);
         const totalJobMatch = resumes.reduce((acc, curr) => acc + (curr.feedback.jobMatchScore || 0), 0);
         const totalIndustryReadiness = resumes.reduce((acc, curr) => acc + (curr.feedback.industryReadiness || 0), 0);
+        const mostImprovedResume = resumes.reduce((highest, current) => {
+            const highestScore = highest.feedback.overallScore || 0;
+            const currentScore = current.feedback.overallScore || 0;
+            return currentScore > highestScore ? current : highest;
+        }, resumes[0]);
 
         // Aggregate missing skills
         const allMissingSkills = resumes.flatMap(r => r.feedback.missingSkills || []);
@@ -60,16 +65,28 @@ const CareerInsights = () => {
             .sort((a, b) => b[1] - a[1])
             .slice(0, 10);
 
+        const weaknessFrequency: { [key: string]: number } = {};
+        resumes.forEach(resume => {
+            const uniqueWeaknesses = new Set(resume.feedback.weaknesses || []);
+            uniqueWeaknesses.forEach(weakness => {
+                if (!weakness) return;
+                weaknessFrequency[weakness] = (weaknessFrequency[weakness] || 0) + 1;
+            });
+        });
+        const topSkillGaps = Object.entries(weaknessFrequency)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5);
+
         return {
             avgATS: Math.round(totalATS / resumes.length),
             avgOverall: Math.round(totalOverall / resumes.length),
             avgJobMatch: Math.round(totalJobMatch / resumes.length),
             avgIndustryReadiness: Math.round(totalIndustryReadiness / resumes.length),
-            topMissingSkills
+            topMissingSkills,
+            mostImprovedResume,
+            topSkillGaps
         };
-    };
-
-    const stats = calculateAverages();
+    }, [resumes]);
 
     return (
         <main className="bg-[url('/images/bg-main.svg')] bg-cover min-h-screen">
@@ -148,6 +165,49 @@ const CareerInsights = () => {
                                             </div>
                                         ))}
                                     </div>
+                                </div>
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                                    <h3 className="text-xl font-bold text-primary mb-4 border-b border-gray-100 pb-2">Most Improved Resume</h3>
+                                    {resumes.length > 1 ? (
+                                        <div className="flex flex-col gap-4">
+                                            <div>
+                                                <span className="font-medium block text-primary text-lg">
+                                                    {stats.mostImprovedResume.jobTitle || 'Resume'}
+                                                </span>
+                                                <span className="text-sm text-gray-500">
+                                                    {stats.mostImprovedResume.companyName || 'Unknown Company'}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-end gap-2">
+                                                <span className="text-5xl font-extrabold text-secondary">
+                                                    {stats.mostImprovedResume.feedback.overallScore || 0}%
+                                                </span>
+                                                <span className="text-dark-200 font-semibold mb-2">overall score</span>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <p className="text-dark-200">Upload more resumes to track improvement.</p>
+                                    )}
+                                </div>
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                                    <h3 className="text-xl font-bold text-primary mb-4 border-b border-gray-100 pb-2">Top Skill Gaps</h3>
+                                    {stats.topSkillGaps.length > 0 ? (
+                                        <ol className="flex flex-col gap-3">
+                                            {stats.topSkillGaps.map(([weakness, count], index) => (
+                                                <li key={weakness} className="flex justify-between items-center gap-3 bg-gray-50 p-3 rounded-lg max-sm:flex-col max-sm:items-start">
+                                                    <div className="flex items-center gap-3 min-w-0">
+                                                        <span className="text-primary font-bold shrink-0">{index + 1}.</span>
+                                                        <span className="font-medium text-dark-200 break-words">{weakness}</span>
+                                                    </div>
+                                                    <span className="bg-badge-yellow text-badge-yellow-text px-3 py-1 rounded-full text-xs font-bold shrink-0">
+                                                        Found in {count} resumes
+                                                    </span>
+                                                </li>
+                                            ))}
+                                        </ol>
+                                    ) : (
+                                        <p className="text-dark-200">No recurring skill gaps found.</p>
+                                    )}
                                 </div>
                             </div>
                         </div>

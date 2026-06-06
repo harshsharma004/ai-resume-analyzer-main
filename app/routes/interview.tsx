@@ -3,6 +3,7 @@ import Navbar from "~/components/Navbar";
 import {usePuterStore} from "~/lib/puter";
 import {useNavigate} from "react-router";
 import {generateUUID} from "~/lib/utils";
+import {normalizeFeedback} from "../../constants";
 
 export const meta = () => {
     return [
@@ -18,6 +19,45 @@ interface InterviewQA {
     content: string;
     dateGenerated: string;
 }
+
+const getAIResponseText = (response: AIResponse): string => {
+    const content = response?.message?.content;
+
+    if (typeof content === 'string') return content;
+    if (!Array.isArray(content)) return '';
+
+    const textPart = content.find((part) => typeof part?.text === 'string');
+    return textPart?.text || '';
+};
+
+const getErrorMessage = (error: unknown) => {
+    if (error instanceof Error) return error.message;
+    if (typeof error === 'string') return error;
+
+    try {
+        return JSON.stringify(error);
+    } catch {
+        return 'An error occurred during generation.';
+    }
+};
+
+const buildResumeContext = (resume: Resume) => {
+    const feedback = normalizeFeedback(resume.feedback);
+
+    return [
+        `Resume target role: ${resume.jobTitle || 'Unknown'}`,
+        `Target company: ${resume.companyName || 'Unknown'}`,
+        `Overall score: ${feedback.overallScore}`,
+        `ATS score: ${feedback.ATS.score}`,
+        `Job match score: ${feedback.jobMatchScore}`,
+        `Career level: ${feedback.careerLevel}`,
+        `Strengths: ${feedback.strengths.join(', ') || 'Not available'}`,
+        `Weaknesses: ${feedback.weaknesses.join(', ') || 'Not available'}`,
+        `Missing skills: ${feedback.missingSkills.join(', ') || 'Not available'}`,
+        `Recommended projects: ${feedback.recommendedProjects.join(', ') || 'Not available'}`,
+        `Recommended certifications: ${feedback.recommendedCertifications.join(', ') || 'Not available'}`
+    ].join('\n');
+};
 
 const InterviewPrep = () => {
     const { auth, isLoading, kv, ai } = usePuterStore();
@@ -37,7 +77,11 @@ const InterviewPrep = () => {
             setLoadingData(true);
             try {
                 const resumeItems = await kv.list('resume:*', true);
-                const parsedResumes = resumeItems?.map((item: any) => JSON.parse(item.value) as Resume);
+                const parsedResumes = resumeItems?.map((item: any) => {
+                    const parsed = JSON.parse(item.value) as Resume;
+                    if (parsed.feedback) parsed.feedback = normalizeFeedback(parsed.feedback);
+                    return parsed;
+                });
                 setResumes(parsedResumes || []);
 
                 const qaItems = await kv.list('interview:*', true);
@@ -73,10 +117,14 @@ const InterviewPrep = () => {
 
         try {
             const prompt = `You are an expert technical interviewer and HR manager at ${companyName}. I am applying for the ${jobTitle} role.
-            Based on my attached resume, generate a realistic mock interview focusing heavily on ${questionType} questions.
-            Format the output nicely. Include the questions and provide brief tips on what the interviewer is looking for in the answer.`;
+            Generate a realistic mock interview focusing heavily on ${questionType} questions.
+            Use this stored resume analysis context to personalize the questions:
 
-            const response = await ai.feedback(selectedResume.resumePath, prompt);
+            ${buildResumeContext(selectedResume)}
+
+            Format the output nicely. Include 8 to 10 questions and provide brief tips on what the interviewer is looking for in the answer.`;
+
+            const response = await ai.chat(prompt);
             
             if (!response) {
                 setStatusText('Error: Failed to generate interview questions');
@@ -84,9 +132,13 @@ const InterviewPrep = () => {
                 return;
             }
 
-            const content = typeof response.message.content === 'string'
-                ? response.message.content
-                : response.message.content[0].text;
+            const content = getAIResponseText(response);
+
+            if (!content) {
+                setStatusText('Error: The AI returned an empty response. Please try again.');
+                setIsProcessing(false);
+                return;
+            }
 
             const uuid = generateUUID();
             const newInterview: InterviewQA = {
@@ -104,7 +156,7 @@ const InterviewPrep = () => {
             setTimeout(() => setStatusText(''), 3000);
         } catch (e) {
             console.error(e);
-            setStatusText('An error occurred during generation.');
+            setStatusText(`Error: ${getErrorMessage(e)}`);
         }
         setIsProcessing(false);
     }

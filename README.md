@@ -1,142 +1,54 @@
-# 🚀 CareerForge AI
+# CareerForge AI
 
-An AI-powered Career Assistant Platform designed to help job seekers improve their resumes, increase ATS compatibility, generate personalized cover letters, prepare for interviews, and track job applications.
+![CareerForge AI hero](./public/readme/hero.webp)
 
-## <a name="introduction">✨ Introduction</a>
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111827)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=ffffff)
+![React Router](https://img.shields.io/badge/React_Router-v7-CA4245?logo=reactrouter&logoColor=ffffff)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-38BDF8?logo=tailwindcss&logoColor=ffffff)
+![Puter.js](https://img.shields.io/badge/Puter.js-Auth_FS_KV_AI-14B8A6)
 
-**CareerForge AI** is an intelligent, unified career assistant platform designed to accelerate your job search. By utilizing artificial intelligence, we help you analyze resumes, ensure ATS compatibility, generate custom cover letters, track job applications, and prepare for interviews with a dedicated AI Coach. 
+## Introduction
 
-This project was built from the foundation of the AI Resume Analyzer, significantly extended into a robust SaaS platform.
+CareerForge AI is an intelligent, AI-powered career assistant platform built with React 19, TypeScript, React Router v7, Tailwind CSS, Zustand, and Puter.js. It helps users analyze resumes, improve ATS scores, generate cover letters, prepare for interviews, track job applications, and get conversational AI career coaching from a single synced workspace.
 
-## 🌟 Overview
+## Tech Stack
 
-CareerForge AI combines AI-powered resume analysis with career development tools to help users improve their chances of landing interviews and job offers.
+- React 19
+- TypeScript
+- React Router v7
+- Tailwind CSS
+- Zustand
+- Puter.js: Auth, FS, KV, and AI
 
-The platform analyzes resumes against job descriptions, provides ATS scores, identifies missing skills, recommends improvements, generates cover letters, and offers interview preparation support.
+## Features
 
----
+- Smart Resume Parsing & ATS Analysis
+- Extended AI Feedback: Job Match Score, Industry Readiness, Missing Skills, Strengths/Weaknesses, Career Level, Recommended Projects & Certifications
+- Cover Letter Generator: AI-powered letters stored in Puter KV
+- Interview Prep: Technical, Behavioral, and HR questions
+- Job Application Tracker: full CRUD with Puter KV
+- Career Insights Dashboard: aggregate stats across all resumes
+- AI Career Coach: conversational chatbot for career guidance
+- Backward Compatibility Layer: `normalizeFeedback` for legacy resumes
+- Cross-device sync via Puter KV with no `localStorage`
 
-## ✨ Features
+## Quick Start
 
-### 📄 AI Resume Analysis
-
-* Upload resumes in PDF format
-* AI-powered resume evaluation
-* ATS compatibility scoring
-* Detailed feedback and improvement suggestions
-
-### 🎯 Job Match Analysis
-
-* Compare resumes against job descriptions
-* Job Match Score calculation
-* Missing skill detection
-* Career readiness assessment
-
-### 📝 Cover Letter Generator
-
-* Generate personalized cover letters
-* Tailored to specific companies and job roles
-* ATS-friendly formatting
-
-### 🎤 Interview Preparation
-
-* Technical interview questions
-* Behavioral interview questions
-* HR interview questions
-* AI-generated preparation guidance
-
-### 📊 Career Insights Dashboard
-
-* Resume performance tracking
-* ATS score trends
-* Skill gap analysis
-* Career readiness metrics
-
-### 💼 Job Application Tracker
-
-* Track applications
-* Monitor interview stages
-* Manage job opportunities
-* Application status updates
-
-### 🤖 AI Career Coach
-
-* Career guidance
-* Resume recommendations
-* Learning roadmap suggestions
-* Project and certification recommendations
-
-### 🔐 Secure Authentication
-
-* Puter.js authentication
-* Browser-based login system
-* Secure user data storage
-
-### ☁️ Cloud Storage
-
-* Resume storage using Puter KV
-* Persistent user data
-* Cross-session access
-
----
-
-## 🛠 Tech Stack
-
-### Frontend
-
-* React 19
-* TypeScript
-* React Router v7
-* Tailwind CSS
-
-### State Management
-
-* Zustand
-
-### AI & Cloud Services
-
-* Puter.js
-* Claude AI
-* Puter KV Storage
-
-### Development Tools
-
-* Vite
-* ESLint
-* TypeScript
-
----
-
-## 📸 Screenshots
-
-Add screenshots of:
-
-* Dashboard
-* Resume Analysis
-* ATS Score Report
-* Cover Letter Generator
-* Job Tracker
-* Interview Preparation
-* Career Coach
-
----
-
-## ⚙️ Installation
-
-### Clone Repository
+Clone the repository:
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/careerforge-ai.git
 cd careerforge-ai
 ```
 
-### Install Dependencies
+Install dependencies:
 
 ```bash
 npm install
 ```
 
-### Run Development Server
+Run the development server:
 
 ```bash
 npm run dev
@@ -148,85 +60,19 @@ Open:
 http://localhost:5173
 ```
 
----
+Sign in with Puter.js to start using CareerForge AI.
 
-## 📂 Project Structure
+## Project Structure
 
-```text
-app/
-├── components/
-├── routes/
-├── lib/
-├── root.tsx
-
-routes/
-├── home.tsx
-├── auth.tsx
-├── upload.tsx
-├── resume.tsx
-├── tracker.tsx
-├── cover-letter.tsx
-├── interview.tsx
-├── career-insights.tsx
-├── career-coach.tsx
-```
-
----
-
-## 🎯 Key Functionalities
-
-### Resume Analysis Flow
-
-```text
-Upload Resume
-      ↓
-Job Description Matching
-      ↓
-AI Analysis
-      ↓
-ATS Score
-      ↓
-Job Match Score
-      ↓
-Career Recommendations
-```
-
-### Career Development Flow
-
-```text
-Resume Analysis
-      ↓
-Skill Gap Detection
-      ↓
-Interview Preparation
-      ↓
-Cover Letter Generation
-      ↓
-Application Tracking
-```
-
----
-
-## 🚀 Future Enhancements
-
-* Resume Version Management
-* AI Mock Interviews
-* LinkedIn Profile Analysis
-* Salary Insights
-* Job Recommendation Engine
-* Resume Templates
-* Export Reports as PDF
-
----
-
-## 👨‍💻 Author
-
-Harsh Sharma
-
-CareerForge AI was developed as a full-stack AI-powered career development platform focused on resume optimization, interview preparation, and job application management.
-
----
-
-## 📜 License
-
-This project is intended for educational and portfolio purposes.
+- `app/routes/home.tsx` - Career Dashboard
+- `app/routes/upload.tsx` - Resume Upload & AI Analysis
+- `app/routes/resume.tsx` - Career Analysis Report
+- `app/routes/tracker.tsx` - Job Application Tracker
+- `app/routes/cover-letter.tsx` - Cover Letter Generator
+- `app/routes/interview.tsx` - Interview Prep
+- `app/routes/career-insights.tsx` - Career Insights
+- `app/routes/career-coach.tsx` - AI Career Coach
+- `app/routes/auth.tsx` - Authentication
+- `app/lib/puter.ts` - Puter.js Zustand Store
+- `constants/index.ts` - AI Prompts and `normalizeFeedback`
+- `types/index.d.ts` - TypeScript Interfaces

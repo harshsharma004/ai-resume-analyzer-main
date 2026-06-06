@@ -1,5 +1,3 @@
-import React from 'react';
-
 const ExtendedFeedback = ({ feedback }: { feedback: any }) => {
     return (
         <div className="flex flex-col gap-6 w-full">

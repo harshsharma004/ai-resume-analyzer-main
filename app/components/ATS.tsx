@@ -1,4 +1,4 @@
-import React from 'react'
+import type { FC } from 'react'
 
 interface Suggestion {
   type: "good" | "improve";
@@ -10,7 +10,7 @@ interface ATSProps {
   suggestions: Suggestion[];
 }
 
-const ATS: React.FC<ATSProps> = ({ score, suggestions }) => {
+const ATS: FC<ATSProps> = ({ score, suggestions }) => {
   // Determine background gradient based on score
   const gradientClass = score > 69
     ? 'from-green-100'

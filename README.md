@@ -2,6 +2,12 @@
 
 An AI-powered Career Assistant Platform designed to help job seekers improve their resumes, increase ATS compatibility, generate personalized cover letters, prepare for interviews, and track job applications.
 
+## <a name="introduction">✨ Introduction</a>
+
+**CareerForge AI** is an intelligent, unified career assistant platform designed to accelerate your job search. By utilizing artificial intelligence, we help you analyze resumes, ensure ATS compatibility, generate custom cover letters, track job applications, and prepare for interviews with a dedicated AI Coach. 
+
+This project was built from the foundation of the AI Resume Analyzer, significantly extended into a robust SaaS platform.
+
 ## 🌟 Overview
 
 CareerForge AI combines AI-powered resume analysis with career development tools to help users improve their chances of landing interviews and job offers.

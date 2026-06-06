@@ -17,32 +17,56 @@ export default function Home() {
   const { auth, kv } = usePuterStore();
   const navigate = useNavigate();
   const [resumes, setResumes] = useState<Resume[]>([]);
-  const [loadingResumes, setLoadingResumes] = useState(false);
+  const [metrics, setMetrics] = useState({ tracking: 0, covers: 0, interviews: 0 });
+  const [loadingResumes, setLoadingResumes] = useState(true);
 
   useEffect(() => {
     if(!auth.isAuthenticated) navigate('/auth?next=/');
   }, [auth.isAuthenticated])
 
   useEffect(() => {
-    const loadResumes = async () => {
+    if (!auth.isAuthenticated) return;
+
+    let isMounted = true;
+
+    const loadDashboardData = async () => {
       setLoadingResumes(true);
 
-      const resumes = (await kv.list('resume:*', true)) as KVItem[];
+      try {
+        const [resumeItems, trackerItems, coverItems, interviewItems] = await Promise.all([
+          kv.list('resume:*', true),
+          kv.list('tracker:*', false),
+          kv.list('coverletter:*', false),
+          kv.list('interview:*', false)
+        ]);
 
-      const parsedResumes = resumes?.map((resume) => {
-          const parsed = JSON.parse(resume.value) as Resume;
-          if (parsed.feedback) {
-              parsed.feedback = normalizeFeedback(parsed.feedback);
-          }
-          return parsed;
-      })
+        if (!isMounted) return;
 
-      setResumes(parsedResumes || []);
-      setLoadingResumes(false);
+        const parsedResumes = (resumeItems as KVItem[])?.map((resume) => {
+            const parsed = JSON.parse(resume.value) as Resume;
+            if (parsed.feedback) {
+                parsed.feedback = normalizeFeedback(parsed.feedback);
+            }
+            return parsed;
+        });
+
+        setResumes(parsedResumes || []);
+        setMetrics({
+          tracking: (trackerItems as string[])?.length || 0,
+          covers: (coverItems as string[])?.length || 0,
+          interviews: (interviewItems as string[])?.length || 0
+        });
+      } catch (e) {
+        console.error(e);
+      } finally {
+        if (isMounted) setLoadingResumes(false);
+      }
     }
 
-    loadResumes()
-  }, []);
+    loadDashboardData();
+
+    return () => { isMounted = false; };
+  }, [auth.isAuthenticated, kv]);
 
   return <main className="bg-[url('/images/bg-main.svg')] bg-cover">
     <Navbar />
@@ -56,6 +80,27 @@ export default function Home() {
           <h2>Track your applications, review resume analysis, and use AI career tools.</h2>
         )}
       </div>
+
+      {!loadingResumes && (
+        <div className="flex gap-4 max-w-[1200px] w-full justify-center mb-10 max-sm:flex-col px-4">
+          <div className="bg-white px-6 py-4 rounded-xl shadow-sm border border-gray-100 flex-1 text-center">
+            <span className="text-3xl font-bold text-primary block">{resumes.length}</span>
+            <span className="text-sm font-medium text-dark-200">Resumes Analyzed</span>
+          </div>
+          <div className="bg-white px-6 py-4 rounded-xl shadow-sm border border-gray-100 flex-1 text-center">
+            <span className="text-3xl font-bold text-primary block">{metrics.tracking}</span>
+            <span className="text-sm font-medium text-dark-200">Jobs Tracked</span>
+          </div>
+          <div className="bg-white px-6 py-4 rounded-xl shadow-sm border border-gray-100 flex-1 text-center">
+            <span className="text-3xl font-bold text-primary block">{metrics.covers}</span>
+            <span className="text-sm font-medium text-dark-200">Cover Letters</span>
+          </div>
+          <div className="bg-white px-6 py-4 rounded-xl shadow-sm border border-gray-100 flex-1 text-center">
+            <span className="text-3xl font-bold text-primary block">{metrics.interviews}</span>
+            <span className="text-sm font-medium text-dark-200">Interviews Prepped</span>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap max-lg:flex-col gap-6 items-start w-full max-w-[1200px] justify-center mb-16">
         <Link to="/upload" className="flex flex-col gap-2 p-6 bg-white rounded-2xl shadow-sm border border-gray-100 w-full lg:w-[350px] hover:shadow-md transition-shadow">
